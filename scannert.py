@@ -7,11 +7,15 @@ import os
 from selenium import webdriver
 
 SCRIPTS = "all and (not broadcast and not dos and not external and not fuzzer) and not http-slowloris-check"
+NMAP_CUSTOM_PASSWORDS = '/tmp/nmap_passwords.txt'
 
 def parse_ports(nmap_xml_file):
-    xml = ET.parse(nmap_xml_file)
-    ports = xml.findall('.//ports/port')
     result = {}
+    try:
+        xml = ET.parse(nmap_xml_file)
+    except:
+        return result
+    ports = xml.findall('.//ports/port')
     for port in ports:
         portid = port.attrib['portid']
         service = ''
@@ -35,6 +39,24 @@ def parse_ports(nmap_xml_file):
     print "[+] Parseports: %s" % repr(result)
     return result
 
+def nmap_prepare_passwords(out_file, nmap_password_file='/usr/share/nmap/nselib/data/passwords.lst', my_password_file='/home/frank/Passwords/custom.lst'):
+    mypasswords = []
+    nmap_passwords = []
+    with open(nmap_password_file) as f:
+        l = f.read().split('\n')
+        #Remove comments.
+        nmap_passwords = [i for i in l if (len(i) > 0 and i[0]!='#')]
+        
+    with open(my_password_file) as f:
+        l = f.read().split('\n')
+        #Remove comments.
+        mypasswords = [i for i in l if (len(i) > 0 and i[0]!='#')]
+
+    passwords = sorted(set(nmap_passwords +  mypasswords))
+    with open(out_file, 'w') as f:
+        f.write('\n'.join(passwords))
+        f.write('\n')
+
 def screenshot_http(target, port, ssl=False, path='/tmp'):
     output='%s/screenshot_http__%s_%s.png' % (path, target_to_filename(target), port)
     if (ssl==True):
@@ -45,12 +67,27 @@ def screenshot_http(target, port, ssl=False, path='/tmp'):
     print "[+] Screenshot '%s'" % url
     try:
         driver = webdriver.Firefox()
+    except:
+        print "[!] Could not instantiate Selenium for Firefox"
+    try:
         driver.get(url)
+    except:
+        print "[!] Could not browse to given url; %s" % url
+    try:
         driver.save_screenshot(output)
+    except:
+        print "[!] Could not screenshot given url; %s" % url
+        url = 'view-source:%s' % url 
+        print "[+] Trying view-source variant url; %s" % url
+        try:
+            driver.get(url)
+            driver.save_screenshot(output)
+        except:
+            print "[!] Even that failed... going home.."
+    try:
         driver.close();
     except:
         pass
-
 def scan_nikto_http(target, port, ssl=False, path='/tmp'):
     output='%s/nikto__%s_%s' % (path, target_to_filename(target), port)
     if (ssl==True):
@@ -74,8 +111,8 @@ def scan_tcp_ports(target, ports='-', path='/tmp'):
 
 def scan_tcp_services(target, ports='-', path='/tmp', scripts=SCRIPTS):
     output='%s/nmap__%s__tcp_services' % (path, target_to_filename(target))
-    cmdline = 'nmap -T5 -sT -Pn -p "%s" -sV --script "%s" -oA "%s" --reason --open --traceroute -O -d -v %s' \
-              % (ports, scripts, output, target)
+    cmdline = 'nmap -T4 -sT -Pn -p "%s" -sV --script "%s" --script-args="passdb=%s" -oA "%s" --reason --open --traceroute -O -d -v %s' \
+              % (ports, scripts, NMAP_CUSTOM_PASSWORDS, output, target)
     print "[+] Command: %s" %(cmdline)
     subprocess.call(cmdline, shell=True)
     xml = output + ".xml" 
@@ -97,11 +134,11 @@ def scan_udp_ports(target, ports='-', topports=None, path='/tmp'):
 def scan_udp_services(target, ports='-', topports=None, path='/tmp', scripts=SCRIPTS):
     output='%s/nmap__%s__udp_services' % (path, target_to_filename(target))
     if (topports is None):
-        cmdline = 'nmap -T5 -sU -Pn -p "%s" -sV -oA "%s" --script "%s" --reason --open --min-rate 500 --max-retries 1 -d -v %s' \
-                  % (ports, output, scripts, target)
+        cmdline = 'nmap -T4 -sU -Pn -p "%s" -sV -oA "%s" --script "%s" --script-args="passdb=%s" --reason --open --min-rate 500 --max-retries 1 -d -v %s' \
+                  % (ports, output, scripts, NMAP_CUSTOM_PASSWORDS, target)
     else:
-        cmdline = 'nmap -T5 -sU -Pn --script "%s" --top-ports %s -sV -oA "%s" --reason --open --min-rate 500 --max-retries 1 -d -v %s' \
-                  % (ports, output, scripts, target)                 
+        cmdline = 'nmap -T4 -sU -Pn --script "%s" --script-args="passdb=%s" --top-ports %s -sV -oA "%s" --reason --open --min-rate 500 --max-retries 1 -d -v %s' \
+                  % (ports, output, scripts, NMAP_CUSTOM_PASSWORDS, target)                 
     print "[+] Command: %s" %(cmdline)
     subprocess.call(cmdline, shell=True)
     xml = output + ".xml" 
@@ -138,7 +175,6 @@ def scan_arachni_http(target, port, ssl=False, path='/tmp'):
     print "[+] Command: %s" %(cmdline)
     subprocess.call(cmdline, shell=True)
 
-
 #Orchestration of a scan
 def scan(target, path='/tmp'):
     if not os.path.exists(path):
@@ -163,6 +199,9 @@ def scan(target, path='/tmp'):
     arachni_path = os.path.join(path, 'arachni')
     if not os.path.exists(arachni_path):
             os.makedirs(arachni_path)
+
+    #Prepare custom nmap passwords
+    nmap_prepare_passwords(NMAP_CUSTOM_PASSWORDS)
 
     #WHOIS
     scan_whois(target, path=nmap_path)
