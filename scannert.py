@@ -88,6 +88,7 @@ def screenshot_http(target, port, ssl=False, path='/tmp'):
         driver.close();
     except:
         pass
+        
 def scan_nikto_http(target, port, ssl=False, path='/tmp'):
     output='%s/nikto__%s_%s' % (path, target_to_filename(target), port)
     if (ssl==True):
