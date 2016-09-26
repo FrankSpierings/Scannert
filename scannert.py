@@ -1,3 +1,5 @@
+#!/usr/bin/python
+
 import re
 import argparse
 import os
@@ -59,7 +61,7 @@ def orchestrate_scan(target, path='/tmp', disabled_features=[]):
             testssl.scan(target, port=port, path=testssl_path)
     
     #TCP service scan
-    if not ('no_tcp_services' in disabled_features):
+    if not ('no_tcp_service' in disabled_features):
         ports = ",".join(dict_result_ports)
         dict_result_ports = nmap.scan_tcp_services(target, ports=ports, path=nmap_path, 
                                              passdb=__CUSTOM_PASSWORDS_DB)

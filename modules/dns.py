@@ -12,37 +12,20 @@ def scan(target, path='/tmp'):
 		logger.debug('Target: \"{target}\" has ip: {ip}'.format(target=target, ip=ip))		
 		__forward_lookup(target, path=path)
 		
-		#Do a reverse lookup of the addresses.
-		ips = []
-		try:
-			ips = socket.gethostbyname_ex(target)[2]
-		except:
-			pass
-		for ip in ips:
-			__reverse_lookup(ip, path=path)
+		target_array = target.split('.')
 
-		__dnsrecon(target, path=path)
-
-		#find first . from the right
-		firstdot = target.rfind('.')
-		#find first . from the left
-		pos = target[:firstdot].find('.')
-		while pos >= 0:
-			subtarget = target[pos+1:]
-			__forward_lookup(subtarget, path=path)
-				
+		for i in range(0, len(target_array)-1):
+			current_target = ".".join(target_array[i:])
+			#Do a reverse lookup of the addresses.
 			ips = []
 			try:
-				ips = socket.gethostbyname_ex(subtarget)[2]
+				ips = socket.gethostbyname_ex(current_target)[2]
 			except:
 				pass
 			for ip in ips:
 				__reverse_lookup(ip, path=path)
 
-			__dnsrecon(subtarget, path=path)
-
-			#find next . from the left, before last .
-			pos = target[pos+1:firstdot].find('.')
+			__dnsrecon(current_target, path=path)
 	else:
 		logger.debug('Target is an ip: {ip}'.format(ip=ip))
 		__reverse_lookup(ip, path=path)

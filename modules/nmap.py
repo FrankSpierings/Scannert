@@ -115,6 +115,48 @@ def parse_ports(nmap_xml_file):
     logger.debug("Parsed ports: {0}".format(result))
     return result
 
+def parse_host_ports(nmap_xml_file):
+    result = {}
+    try:
+        xml = ET.parse(nmap_xml_file)
+    except:
+        return result
+    hosts = xml.findall('.//host')
+    print(len(hosts))
+    for host in hosts:
+        addr = 'UNKNOWN'
+        try:
+            addr_ = host.findall('.//address')[0]
+            addr  = addr_.attrib['addr']
+        except:
+            pass
+        ports = host.findall('.//ports/port')
+        for port in ports:
+            portid = port.attrib['portid']
+            service = ''
+            ssl = False
+            try:
+                if (port.find('.//state').attrib['state'] == 'open'):
+                    try:
+                        service = port.find('.//service').attrib['name']
+                    except:
+                        pass
+                    try:        
+                        if (port.find('.//service').attrib['tunnel'] == 'ssl'):
+                            ssl = True
+                    except:
+                        pass
+                    if not addr in result:
+                        result[addr] = {}
+                    if not portid in result[addr]:
+                        result[addr][portid] = {}
+                    result[addr][portid]['service'] = service
+                    result[addr][portid]['ssl'] = ssl
+            except:
+                pass
+        logger.debug("Parsed ports: {0}".format(result))
+    return result
+
 def prepare_passwords(out_file, my_password_file, use_native=True):
     mypasswords = []
     
