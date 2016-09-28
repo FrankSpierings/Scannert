@@ -122,7 +122,6 @@ def parse_host_ports(nmap_xml_file):
     except:
         return result
     hosts = xml.findall('.//host')
-    print(len(hosts))
     for host in hosts:
         addr = 'UNKNOWN'
         try:
@@ -156,6 +155,18 @@ def parse_host_ports(nmap_xml_file):
                 pass
         logger.debug("Parsed ports: {0}".format(result))
     return result
+
+def parse_host_ports_multi(files):
+    output = {}
+    for file in files:
+        result = parse_host_ports(file)
+        for host in result.keys():
+            if host in output.keys():
+                for port in result[host].keys():
+                    output[host][port] = result[host][port]
+            else:
+                output.update(result)
+    return output
 
 def prepare_passwords(out_file, my_password_file, use_native=True):
     mypasswords = []
