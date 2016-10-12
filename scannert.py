@@ -5,8 +5,10 @@ import argparse
 import os
 import netaddr
 
+import modules.netconfig as netconfig
 import modules.dns as dns
 import modules.nmap as nmap
+import modules.smb as smb
 import modules.screenshot as screenshot
 import modules.testssl as testssl
 import modules.nikto as nikto
@@ -22,16 +24,18 @@ __MY_CUSTOM_PASSWORDS  = '/home/frank/Passwords/custom.lst'
 
 #Orchestration of a scan
 def orchestrate_scan(target, path='/tmp', disabled_features=[]):
+    #Create base path
     if not os.path.exists(path):
             os.makedirs(path)
 
-    nmap_path = os.path.join(path, 'nmap')
-    if not os.path.exists(nmap_path):
-            os.makedirs(nmap_path)
-
-
     #Prepare custom nmap passwords
     nmap.prepare_passwords(__CUSTOM_PASSWORDS_DB, __MY_CUSTOM_PASSWORDS)
+
+    #IP Config:
+    netconfig_path = os.path.join(path, 'netconfig')
+    if not os.path.exists(netconfig_path):
+            os.makedirs(netconfig_path)
+    netconfig.gather(netconfig_path)
 
     #DNS
     if not ('no_dns' in disabled_features):
@@ -45,6 +49,9 @@ def orchestrate_scan(target, path='/tmp', disabled_features=[]):
         nmap.scan_whois(target, path=nmap_path)
 
     #TCP scan
+    nmap_path = os.path.join(path, 'nmap')
+    if not os.path.exists(nmap_path):
+            os.makedirs(nmap_path)
     dict_result_ports = nmap.scan_tcp_ports(target, path=nmap_path)
     dict_tcp_ports    = dict_result_ports
 
@@ -87,6 +94,14 @@ def orchestrate_scan(target, path='/tmp', disabled_features=[]):
             dict_result_ports = nmap.scan_udp_services(target, ports=ports, path=nmap_path, 
                                             passdb=__CUSTOM_PASSWORDS_DB)
             dict_udp_services_ports = dict_result_ports
+
+    #SMB
+    if not ('no_smb' in disabled_features):
+        smb_path = os.path.join(path, 'smb')
+        if ('445' in dict_tcp_ports):
+            if not os.path.exists(smb_path):
+                os.makedirs(smb_path)
+            smb.scan(target, path=smb_path)
 
     #Nikto http scan
     if not ('no_nikto' in disabled_features):
@@ -160,6 +175,7 @@ def __setup_arguments():
     parser.add_argument('--no-whois', help='Disable Nmap WHOIS', action='store_true')
     parser.add_argument('--no-screenshots', help='Disable screenshots', action='store_true')
     parser.add_argument('--no-ssl', help='Disable Testssl.sh', action='store_true')
+    parser.add_argument('--no-smb', help='Disable SMB checks', action='store_true')
     parser.add_argument('--no-nikto', help='Disable Nikto', action='store_true')
     parser.add_argument('--no-arachni', help='Disable Arachni', action='store_true')
 
